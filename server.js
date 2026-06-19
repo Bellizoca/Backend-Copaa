@@ -9,7 +9,7 @@ const produtoRoutes = require('./routes/produtos')
 const carrinhoRoutes = require('./routes/carrinho')
 const pedidoRoutes = require('./routes/pedidos')
 const trocaRoutes = require('./routes/trocas')
-const categoriaRoutes = require('./routes/categorias')  // <-- NOVA ROTA
+const categoriaRoutes = require('./routes/categorias')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -20,9 +20,9 @@ const PORT = process.env.PORT || 3000
 
 // CORS - Permitir requisições do frontend
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
 // Parse JSON
@@ -31,30 +31,30 @@ app.use(express.urlencoded({ extended: true }))
 
 // Log de requisições (para debug)
 app.use((req, res, next) => {
-  console.log(`📝 ${req.method} ${req.url}`)
-  next()
+    console.log(`📝 ${req.method} ${req.url}`)
+    next()
 })
 
 // ============================================
-// ROTAS
+// ROTAS - NENHUMA ROTA DE AUTENTICAÇÃO TEM MIDDLEWARE!
 // ============================================
 
-// Rotas de autenticação
+// Rotas de autenticação (PÚBLICAS - sem token)
 app.use('/api/auth', authRoutes)
 
-// Rotas de produtos
+// Rotas de produtos (algumas exigem token via middleware interno)
 app.use('/api/produtos', produtoRoutes)
 
-// Rotas de carrinho
+// Rotas de carrinho (exigem token via middleware interno)
 app.use('/api/carrinho', carrinhoRoutes)
 
-// Rotas de pedidos
+// Rotas de pedidos (exigem token via middleware interno)
 app.use('/api/pedidos', pedidoRoutes)
 
-// Rotas de trocas
+// Rotas de trocas (exigem token via middleware interno)
 app.use('/api/trocas', trocaRoutes)
 
-// Rotas de categorias  <-- NOVA ROTA ADICIONADA
+// Rotas de categorias (públicas para GET, exigem token para POST/PUT/DELETE)
 app.use('/api/categorias', categoriaRoutes)
 
 // ============================================
@@ -62,57 +62,56 @@ app.use('/api/categorias', categoriaRoutes)
 // ============================================
 
 app.get('/', (req, res) => {
-  res.json({ 
-    mensagem: '🏆 Mercado da Copa API', 
-    versao: '1.0.0',
-    endpoints: {
-      autenticacao: {
-        registro: 'POST /api/auth/register',
-        login: 'POST /api/auth/login',
-        perfil: 'GET /api/auth/perfil'
-      },
-      produtos: {
-        listar: 'GET /api/produtos',
-        detalhe: 'GET /api/produtos/:id',
-        criar: 'POST /api/produtos',
-        editar: 'PUT /api/produtos/:id',
-        deletar: 'DELETE /api/produtos/:id',
-        meus_anuncios: 'GET /api/produtos/meus/anuncios'
-      },
-      categorias: {  // <-- NOVO ENDPOINT
-        listar: 'GET /api/categorias',
-        detalhe: 'GET /api/categorias/:id',
-        criar: 'POST /api/categorias',
-        editar: 'PUT /api/categorias/:id',
-        deletar: 'DELETE /api/categorias/:id',
-        com_produtos: 'GET /api/categorias/com-produtos'
-      },
-      carrinho: {
-        ver: 'GET /api/carrinho',
-        adicionar: 'POST /api/carrinho',
-        atualizar: 'PUT /api/carrinho/:id',
-        remover: 'DELETE /api/carrinho/:id'
-      },
-      pedidos: {
-        finalizar: 'POST /api/pedidos/finalizar',
-        meus_pedidos: 'GET /api/pedidos/meus'
-      },
-      trocas: {
-        criar: 'POST /api/trocas',
-        minhas_propostas: 'GET /api/trocas/minhas',
-        responder: 'PUT /api/trocas/:id/responder'
-      }
-    }
-  })
+    res.json({
+        mensagem: '🏆 Mercado da Copa API',
+        versao: '1.0.0',
+        endpoints: {
+            autenticacao: {
+                registro: 'POST /api/auth/register ✅ (público)',
+                login: 'POST /api/auth/login ✅ (público)',
+                perfil: 'GET /api/auth/perfil 🔒 (requer token)'
+            },
+            produtos: {
+                listar: 'GET /api/produtos ✅ (público)',
+                detalhe: 'GET /api/produtos/:id ✅ (público)',
+                criar: 'POST /api/produtos 🔒 (requer token)',
+                editar: 'PUT /api/produtos/:id 🔒 (requer token)',
+                deletar: 'DELETE /api/produtos/:id 🔒 (requer token)',
+                meus_anuncios: 'GET /api/produtos/meus/anuncios 🔒 (requer token)'
+            },
+            categorias: {
+                listar: 'GET /api/categorias ✅ (público)',
+                detalhe: 'GET /api/categorias/:id ✅ (público)',
+                criar: 'POST /api/categorias 🔒 (requer token)',
+                editar: 'PUT /api/categorias/:id 🔒 (requer token)',
+                deletar: 'DELETE /api/categorias/:id 🔒 (requer token)'
+            },
+            carrinho: {
+                ver: 'GET /api/carrinho 🔒 (requer token)',
+                adicionar: 'POST /api/carrinho 🔒 (requer token)',
+                atualizar: 'PUT /api/carrinho/:id 🔒 (requer token)',
+                remover: 'DELETE /api/carrinho/:id 🔒 (requer token)'
+            },
+            pedidos: {
+                finalizar: 'POST /api/pedidos/finalizar 🔒 (requer token)',
+                meus_pedidos: 'GET /api/pedidos/meus 🔒 (requer token)'
+            },
+            trocas: {
+                criar: 'POST /api/trocas 🔒 (requer token)',
+                minhas_propostas: 'GET /api/trocas/minhas 🔒 (requer token)',
+                responder: 'PUT /api/trocas/:id/responder 🔒 (requer token)'
+            }
+        }
+    })
 })
 
 // Rota de health check (para monitoramento)
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  })
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    })
 })
 
 // ============================================
@@ -120,11 +119,11 @@ app.get('/health', (req, res) => {
 // ============================================
 
 app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Rota não encontrada',
-    mensagem: `A rota ${req.method} ${req.url} não existe`,
-    sugestao: 'Verifique os endpoints disponíveis em GET /'
-  })
+    res.status(404).json({
+        error: 'Rota não encontrada',
+        mensagem: `A rota ${req.method} ${req.url} não existe`,
+        sugestao: 'Verifique os endpoints disponíveis em GET /'
+    })
 })
 
 // ============================================
@@ -132,12 +131,12 @@ app.use((req, res) => {
 // ============================================
 
 app.use((err, req, res, next) => {
-  console.error('❌ Erro:', err.stack)
-  
-  res.status(err.status || 500).json({
-    error: err.message || 'Erro interno do servidor',
-    mensagem: 'Algo deu errado. Tente novamente mais tarde.'
-  })
+    console.error('❌ Erro:', err.stack)
+
+    res.status(err.status || 500).json({
+        error: err.message || 'Erro interno do servidor',
+        mensagem: 'Algo deu errado. Tente novamente mais tarde.'
+    })
 })
 
 // ============================================
@@ -145,22 +144,32 @@ app.use((err, req, res, next) => {
 // ============================================
 
 app.listen(PORT, () => {
-  console.log('')
-  console.log('=' .repeat(50))
-  console.log('🏆 MERCADO DA COPA - BACKEND')
-  console.log('=' .repeat(50))
-  console.log(`🚀 Servidor rodando na porta: ${PORT}`)
-  console.log(`📍 Local: http://localhost:${PORT}`)
-  console.log(`📋 Health check: http://localhost:${PORT}/health`)
-  console.log('=' .repeat(50))
-  console.log('✅ Backend pronto para receber requisições!')
-  console.log('')
-  console.log('📌 Endpoints disponíveis:')
-  console.log(`   GET  /api/categorias        - Listar categorias`)
-  console.log(`   POST /api/categorias        - Criar categoria`)
-  console.log(`   GET  /api/categorias/:id    - Detalhe da categoria`)
-  console.log(`   PUT  /api/categorias/:id    - Editar categoria`)
-  console.log(`   DELETE /api/categorias/:id  - Deletar categoria`)
-  console.log(`   GET  /api/categorias/com-produtos - Categorias com contagem`)
-  console.log('')
+    console.log('')
+    console.log('='.repeat(50))
+    console.log('🏆 MERCADO DA COPA - BACKEND')
+    console.log('='.repeat(50))
+    console.log(`🚀 Servidor rodando na porta: ${PORT}`)
+    console.log(`📍 Local: http://localhost:${PORT}`)
+    console.log(`📋 Health check: http://localhost:${PORT}/health`)
+    console.log('='.repeat(50))
+    console.log('✅ Backend pronto para receber requisições!')
+    console.log('')
+    console.log('📌 Rotas públicas (sem token):')
+    console.log(`   POST /api/auth/register   - Cadastro de usuário`)
+    console.log(`   POST /api/auth/login      - Login de usuário`)
+    console.log(`   GET  /api/produtos        - Listar produtos`)
+    console.log(`   GET  /api/produtos/:id    - Detalhe do produto`)
+    console.log(`   GET  /api/categorias      - Listar categorias`)
+    console.log(`   GET  /api/categorias/:id  - Detalhe da categoria`)
+    console.log('')
+    console.log('📌 Rotas protegidas (requerem token Bearer):')
+    console.log(`   GET  /api/auth/perfil     - Perfil do usuário`)
+    console.log(`   POST /api/produtos        - Criar produto`)
+    console.log(`   PUT  /api/produtos/:id    - Editar produto`)
+    console.log(`   DELETE /api/produtos/:id  - Deletar produto`)
+    console.log(`   GET  /api/carrinho        - Ver carrinho`)
+    console.log(`   POST /api/carrinho        - Adicionar ao carrinho`)
+    console.log(`   POST /api/pedidos/finalizar - Finalizar pedido`)
+    console.log(`   POST /api/trocas          - Propor troca`)
+    console.log('')
 })
