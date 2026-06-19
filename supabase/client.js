@@ -2,8 +2,9 @@
 const { createClient } = require('@supabase/supabase-js')
 require('dotenv').config()
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_KEY
+// ⚠️ SUBSTITUIR PELOS DADOS DO SEU PROJETO SUPABASE
+const supabaseUrl = process.env.SUPABASE_URL || 'https://ixjcvufpsdckbhqlgswq.supabase.co'
+const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_q6RZbtnMjtUmrSoDaigEhA_mEKVcq1g'
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
