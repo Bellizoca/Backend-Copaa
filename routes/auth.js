@@ -4,7 +4,7 @@ const router = express.Router()
 const supabase = require('../supabase/client')
 
 // ============================================
-// REGISTRAR USUÁRIO - COM LOGS DETALHADOS
+// REGISTRAR USUÁRIO - PÚBLICO (sem token)
 // ============================================
 router.post('/register', async (req, res) => {
     console.log('📝 Recebida requisição de cadastro:', req.body)
@@ -19,14 +19,15 @@ router.post('/register', async (req, res) => {
     try {
         console.log('🔐 Tentando criar usuário no Supabase Auth...')
         
-        // 1. Criar usuário no Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        // USAR signUp (público) em vez de admin.createUser
+        const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password: senha,
-            email_confirm: true, // Confirma o email automaticamente
-            user_metadata: { 
-                nome: nome,
-                telefone: telefone || ''
+            options: {
+                data: { 
+                    nome: nome,
+                    telefone: telefone || ''
+                }
             }
         })
 
@@ -35,6 +36,12 @@ router.post('/register', async (req, res) => {
             
             if (authError.message && authError.message.includes('already registered')) {
                 return res.status(400).json({ error: 'Este e-mail já está cadastrado' })
+            }
+            if (authError.message && authError.message.includes('security purposes')) {
+                return res.status(429).json({ 
+                    error: 'Aguarde alguns segundos e tente novamente.',
+                    tipo: 'rate_limit'
+                })
             }
             return res.status(400).json({ error: authError.message || 'Erro ao criar usuário' })
         }
@@ -69,7 +76,7 @@ router.post('/register', async (req, res) => {
 
         res.status(201).json({
             sucesso: true,
-            mensagem: 'Conta criada com sucesso!',
+            mensagem: 'Conta criada com sucesso! Faça login para continuar.',
             usuario: {
                 id: authData.user.id,
                 email: email,
@@ -87,7 +94,7 @@ router.post('/register', async (req, res) => {
 })
 
 // ============================================
-// LOGIN USUÁRIO
+// LOGIN USUÁRIO - PÚBLICO (sem token)
 // ============================================
 router.post('/login', async (req, res) => {
     console.log('📝 Recebida requisição de login:', req.body.email)
