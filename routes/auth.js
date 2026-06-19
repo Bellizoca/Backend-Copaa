@@ -4,55 +4,67 @@ const router = express.Router()
 const supabase = require('../supabase/client')
 
 // ============================================
-// REGISTRAR USUÁRIO
+// REGISTRAR USUÁRIO - COM LOGS DETALHADOS
 // ============================================
 router.post('/register', async (req, res) => {
+    console.log('📝 Recebida requisição de cadastro:', req.body)
+    
     const { nome, email, senha, telefone } = req.body
 
     if (!email || !senha || !nome) {
+        console.log('❌ Campos faltando:', { email: !!email, senha: !!senha, nome: !!nome })
         return res.status(400).json({ error: 'Email, senha e nome são obrigatórios' })
     }
 
     try {
+        console.log('🔐 Tentando criar usuário no Supabase Auth...')
+        
         // 1. Criar usuário no Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email,
             password: senha,
-            options: {
-                data: { nome, telefone: telefone || '' }
+            email_confirm: true, // Confirma o email automaticamente
+            user_metadata: { 
+                nome: nome,
+                telefone: telefone || ''
             }
         })
 
         if (authError) {
+            console.error('❌ Erro no Supabase Auth:', authError)
+            
             if (authError.message && authError.message.includes('already registered')) {
                 return res.status(400).json({ error: 'Este e-mail já está cadastrado' })
             }
-            if (authError.message && authError.message.includes('security purposes')) {
-                return res.status(429).json({ 
-                    error: 'Aguarde alguns segundos e tente novamente.',
-                    tipo: 'rate_limit'
-                })
-            }
-            throw authError
+            return res.status(400).json({ error: authError.message || 'Erro ao criar usuário' })
         }
 
-        if (!authData.user) {
+        if (!authData || !authData.user) {
+            console.error('❌ Nenhum usuário retornado')
             return res.status(400).json({ error: 'Erro ao criar usuário' })
         }
 
+        console.log('✅ Usuário criado com sucesso:', authData.user.id)
+
         // 2. Criar perfil na tabela perfis
+        console.log('📝 Criando perfil na tabela perfis...')
+        
         const { error: perfilError } = await supabase
             .from('perfis')
             .insert({
                 id: authData.user.id,
-                nome,
-                email,
+                nome: nome,
+                email: email,
                 telefone: telefone || null,
-                tipo: 'cliente'
+                tipo: 'cliente',
+                data_criacao: new Date()
             })
 
         if (perfilError) {
-            console.error('Erro ao criar perfil:', perfilError)
+            console.error('❌ Erro ao criar perfil:', perfilError)
+            // Não retorna erro, apenas loga
+        } else {
+            console.log('✅ Perfil criado com sucesso!')
         }
 
         res.status(201).json({
@@ -60,14 +72,17 @@ router.post('/register', async (req, res) => {
             mensagem: 'Conta criada com sucesso!',
             usuario: {
                 id: authData.user.id,
-                email,
-                nome
+                email: email,
+                nome: nome
             }
         })
 
     } catch (error) {
-        console.error('Erro no registro:', error)
-        res.status(500).json({ error: error.message || 'Erro ao criar conta' })
+        console.error('❌ Erro fatal no registro:', error)
+        res.status(500).json({ 
+            error: 'Erro interno ao criar conta. Tente novamente.',
+            detalhe: error.message 
+        })
     }
 })
 
@@ -75,6 +90,8 @@ router.post('/register', async (req, res) => {
 // LOGIN USUÁRIO
 // ============================================
 router.post('/login', async (req, res) => {
+    console.log('📝 Recebida requisição de login:', req.body.email)
+    
     const { email, senha } = req.body
 
     if (!email || !senha) {
@@ -88,11 +105,14 @@ router.post('/login', async (req, res) => {
         })
 
         if (error) {
+            console.error('❌ Erro no login:', error)
             if (error.message && error.message.includes('Invalid login credentials')) {
                 return res.status(401).json({ error: 'E-mail ou senha incorretos' })
             }
             throw error
         }
+
+        console.log('✅ Login bem-sucedido:', data.user.id)
 
         // Buscar perfil
         let perfil = null
@@ -103,6 +123,7 @@ router.post('/login', async (req, res) => {
             .single()
 
         if (perfilError) {
+            console.log('⚠️ Perfil não encontrado, criando...')
             const nome = data.user.user_metadata?.nome || email.split('@')[0]
             await supabase
                 .from('perfis')
@@ -129,8 +150,38 @@ router.post('/login', async (req, res) => {
         })
 
     } catch (error) {
-        console.error('Erro no login:', error)
+        console.error('❌ Erro no login:', error)
         res.status(401).json({ error: 'E-mail ou senha incorretos' })
+    }
+})
+
+// ============================================
+// VERIFICAR SE A TABELA PERFIS EXISTE
+// ============================================
+router.get('/check', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('perfis')
+            .select('count')
+            .limit(1)
+        
+        if (error) {
+            return res.status(500).json({ 
+                error: 'Erro ao acessar tabela perfis',
+                detalhe: error.message 
+            })
+        }
+        
+        res.json({ 
+            status: 'ok', 
+            mensagem: 'Tabela perfis acessível',
+            tabela_existe: true
+        })
+    } catch (error) {
+        res.status(500).json({ 
+            error: 'Erro ao verificar tabela',
+            detalhe: error.message 
+        })
     }
 })
 
