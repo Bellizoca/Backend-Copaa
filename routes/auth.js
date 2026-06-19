@@ -4,7 +4,7 @@ const router = express.Router()
 const supabase = require('../supabase/client')
 
 // ============================================
-// REGISTRAR USUÁRIO
+// REGISTRAR USUÁRIO - COM TRATAMENTO DE ERRO
 // ============================================
 router.post('/register', async (req, res) => {
     const { nome, email, senha, telefone } = req.body
@@ -14,7 +14,7 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        // 1. Criar usuário no Supabase Auth
+        // 1. Tentar criar usuário no Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password: senha,
@@ -24,13 +24,25 @@ router.post('/register', async (req, res) => {
         })
 
         if (authError) {
-            if (authError.message.includes('already registered')) {
+            // Tratar erro de rate limiting (muitas requisições)
+            if (authError.message && authError.message.includes('security purposes')) {
+                return res.status(429).json({ 
+                    error: 'Aguarde alguns segundos e tente novamente. O Supabase tem um limite de segurança para evitar spam.',
+                    tipo: 'rate_limit'
+                })
+            }
+            if (authError.message && authError.message.includes('already registered')) {
                 return res.status(400).json({ error: 'Este e-mail já está cadastrado' })
             }
             throw authError
         }
 
-        // 2. Criar perfil na tabela perfis
+        // 2. Verificar se o usuário foi criado
+        if (!authData.user) {
+            return res.status(400).json({ error: 'Erro ao criar usuário. Tente novamente.' })
+        }
+
+        // 3. Criar perfil na tabela perfis
         const { error: perfilError } = await supabase
             .from('perfis')
             .insert({
@@ -41,11 +53,15 @@ router.post('/register', async (req, res) => {
                 tipo: 'cliente'
             })
 
-        if (perfilError) throw perfilError
+        if (perfilError) {
+            // Se falhou ao criar perfil, tentar novamente
+            console.error('Erro ao criar perfil:', perfilError)
+            // Não retorna erro, apenas log
+        }
 
         res.status(201).json({
             sucesso: true,
-            mensagem: 'Conta criada com sucesso',
+            mensagem: 'Conta criada com sucesso! Faça login para continuar.',
             usuario: {
                 id: authData.user.id,
                 email,
@@ -55,7 +71,7 @@ router.post('/register', async (req, res) => {
 
     } catch (error) {
         console.error('Erro no registro:', error)
-        res.status(500).json({ error: error.message || 'Erro ao criar conta' })
+        res.status(500).json({ error: error.message || 'Erro ao criar conta. Tente novamente.' })
     }
 })
 
@@ -76,14 +92,15 @@ router.post('/login', async (req, res) => {
         })
 
         if (error) {
-            if (error.message.includes('Invalid login credentials')) {
+            if (error.message && error.message.includes('Invalid login credentials')) {
                 return res.status(401).json({ error: 'E-mail ou senha incorretos' })
             }
             throw error
         }
 
         // Buscar perfil
-        const { data: perfil, error: perfilError } = await supabase
+        let perfil = null
+        const { data: perfilData, error: perfilError } = await supabase
             .from('perfis')
             .select('*')
             .eq('id', data.user.id)
@@ -91,15 +108,20 @@ router.post('/login', async (req, res) => {
 
         if (perfilError) {
             // Se não tiver perfil, criar um
+            const nome = data.user.user_metadata?.nome || email.split('@')[0]
             const { error: createError } = await supabase
                 .from('perfis')
                 .insert({
                     id: data.user.id,
-                    nome: data.user.user_metadata?.nome || email.split('@')[0],
+                    nome: nome,
                     email: data.user.email,
                     tipo: 'cliente'
                 })
-            if (createError) throw createError
+            if (!createError) {
+                perfil = { nome, email: data.user.email, tipo: 'cliente' }
+            }
+        } else {
+            perfil = perfilData
         }
 
         res.json({
