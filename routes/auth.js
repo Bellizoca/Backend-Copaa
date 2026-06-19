@@ -144,4 +144,4 @@ router.post('/login', async (req, res) => {
     }
 })
 
-module.exports = router0
+module.exports = router
